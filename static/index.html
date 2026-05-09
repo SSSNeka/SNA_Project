@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>System Health Monitoring Dashboard</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: rgba(14, 22, 38, 0.82);
+      --panel-2: rgba(18, 28, 48, 0.9);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e8eef9;
+      --muted: #9eb0cf;
+      --accent: #57c7ff;
+      --green: #21c55d;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(87, 199, 255, 0.18), transparent 30%),
+        radial-gradient(circle at top right, rgba(108, 92, 231, 0.16), transparent 28%),
+        linear-gradient(160deg, #08111f 0%, #0c1728 45%, #09111d 100%);
+      color: var(--text);
+    }
+
+    .shell {
+      width: min(1400px, calc(100vw - 32px));
+      margin: 24px auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero, .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .hero {
+      padding: 24px 26px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.7rem, 4vw, 2.6rem);
+      letter-spacing: -0.03em;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.98rem;
+      max-width: 760px;
+      line-height: 1.55;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+      color: white;
+      border: 0;
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(14, 165, 233, 0.25);
+    }
+
+    button:hover { transform: translateY(-1px); }
+
+    .pill {
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      border: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.92rem;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 16px;
+    }
+
+    .card { padding: 18px; }
+
+    .kpi-title {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 10px;
+    }
+
+    .kpi-value {
+      font-size: 2rem;
+      font-weight: 800;
+      margin: 0 0 12px;
+    }
+
+    .tiny {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #22c55e, #38bdf8);
+      transition: width 0.35s ease;
+    }
+
+    .bar-fill.warn {
+      background: linear-gradient(90deg, #f59e0b, #f97316);
+    }
+
+    .bar-fill.danger {
+      background: linear-gradient(90deg, #ef4444, #ec4899);
+    }
+
+    .section-title {
+      margin: 0 0 12px;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .core-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+    }
+
+    .core-tile {
+      background: var(--panel-2);
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.06);
+      padding: 14px;
+    }
+
+    .core-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      text-align: left;
+    }
+
+    th { color: var(--muted); font-weight: 600; }
+
+    .alerts {
+      display: grid;
+      gap: 10px;
+    }
+
+    .alert {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.28);
+      color: #ffd58a;
+    }
+
+    .alert.good {
+      background: rgba(34, 197, 94, 0.12);
+      border-color: rgba(34, 197, 94, 0.24);
+      color: #99f6b4;
+    }
+
+    .log-box {
+      background: #08101c;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.06);
+      padding: 14px;
+      max-height: 300px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      color: #c9d6ec;
+      white-space: pre-wrap;
+    }
+
+    .footer {
+      color: var(--muted);
+      text-align: center;
+      font-size: 0.92rem;
+      padding-bottom: 14px;
+    }
+
+    @media (max-width: 1024px) {
+      .grid-4, .grid-2 { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .grid-4, .grid-2 { grid-template-columns: 1fr; }
+      .hero { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div>
+        <h1>System Health Monitoring Dashboard</h1>
+        <div class="subtitle">
+          Localhost Linux web application backed by a Bash monitoring engine. Metrics come from <code>/proc</code>, process inspection, and system utilities, with signal-based auto-refresh every 2 seconds.
+        </div>
+      </div>
+      <div class="actions">
+        <div class="pill" id="statusPill">Starting monitor…</div>
+        <div class="pill" id="lastRefresh">Waiting for data…</div>
+        <button id="forceRefreshBtn">Force refresh (SIGUSR1)</button>
+      </div>
+    </section>
+
+    <section class="grid-4">
+      <article class="card">
+        <div class="kpi-title">Overall CPU</div>
+        <div class="kpi-value" id="cpuSummary">--%</div>
+        <div class="bar-track"><div class="bar-fill" id="cpuBar"></div></div>
+        <div class="tiny" id="loadAvg">Load average: --</div>
+      </article>
+      <article class="card">
+        <div class="kpi-title">Memory Usage</div>
+        <div class="kpi-value" id="memUsage">--%</div>
+        <div class="bar-track"><div class="bar-fill" id="memBar"></div></div>
+        <div class="tiny" id="memDetails">--</div>
+      </article>
+      <article class="card">
+        <div class="kpi-title">Root Disk Usage</div>
+        <div class="kpi-value" id="diskUsage">--%</div>
+        <div class="bar-track"><div class="bar-fill" id="diskBar"></div></div>
+        <div class="tiny" id="diskDetails">--</div>
+      </article>
+      <article class="card">
+        <div class="kpi-title">Running Processes & Uptime</div>
+        <div class="kpi-value" id="processCount">--</div>
+        <div class="tiny" id="processDetails">Total processes: --</div>
+        <div class="tiny" id="uptime">Uptime: --</div>
+        <div class="tiny" id="diskIo">Disk I/O: --</div>
+      </article>
+    </section>
+
+    <section class="grid-2">
+      <article class="card">
+        <h2 class="section-title">CPU usage per core</h2>
+        <div class="core-grid" id="coreGrid"></div>
+      </article>
+      <article class="card">
+        <h2 class="section-title">Alerts</h2>
+        <div class="alerts" id="alerts"></div>
+      </article>
+    </section>
+
+    <section class="grid-2">
+      <article class="card">
+        <h2 class="section-title">Top 5 CPU consumers</h2>
+        <table>
+          <thead>
+            <tr><th>PID</th><th>Command</th><th>CPU %</th><th>MEM %</th></tr>
+          </thead>
+          <tbody id="topCpuTable"></tbody>
+        </table>
+      </article>
+      <article class="card">
+        <h2 class="section-title">Top 5 memory consumers</h2>
+        <table>
+          <thead>
+            <tr><th>PID</th><th>Command</th><th>CPU %</th><th>MEM %</th></tr>
+          </thead>
+          <tbody id="topMemTable"></tbody>
+        </table>
+      </article>
+    </section>
+
+    <section class="card">
+      <h2 class="section-title">Live monitoring log</h2>
+      <div class="log-box" id="logBox">Loading logs…</div>
+    </section>
+
+    <div class="footer">
+      Auto-refreshing every 2 seconds. Press Ctrl+C in the server terminal to demonstrate graceful SIGINT shutdown. The SIGUSR1 button sends a real SIGUSR1 to the Bash monitor and prints a visible event in the ./run.sh terminal.
+    </div>
+  </div>
+
+  <script>
+    const byId = (id) => document.getElementById(id);
+
+    function toneClass(value) {
+      const number = Number(value || 0);
+      if (number >= 90) return 'danger';
+      if (number >= 75) return 'warn';
+      return '';
+    }
+
+    function updateBar(el, value) {
+      const number = Number(value || 0);
+      el.style.width = `${Math.max(0, Math.min(number, 100))}%`;
+      el.className = `bar-fill ${toneClass(number)}`.trim();
+    }
+
+    function renderTable(target, rows) {
+      target.innerHTML = rows.length
+        ? rows.map((row) => `
+            <tr>
+              <td>${row.pid}</td>
+              <td>${row.command}</td>
+              <td>${row.cpu}</td>
+              <td>${row.mem}</td>
+            </tr>`).join('')
+        : '<tr><td colspan="4">No data yet</td></tr>';
+    }
+
+    function renderAlerts(alerts) {
+      const container = byId('alerts');
+      if (!alerts.length) {
+        container.innerHTML = '<div class="alert good">System status normal</div>';
+        return;
+      }
+      container.innerHTML = alerts.map((message) => `<div class="alert">${message}</div>`).join('');
+    }
+
+    function renderCores(cores) {
+      const container = byId('coreGrid');
+      container.innerHTML = cores.map((item) => `
+        <div class="core-tile">
+          <div class="core-label">
+            <span>${item.core}</span>
+            <span>${item.usage}%</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill ${toneClass(item.usage)}" style="width:${item.usage}%"></div></div>
+        </div>`).join('');
+    }
+
+    async function fetchMetrics(showToast = false) {
+      const response = await fetch('/api/metrics', { cache: 'no-store' });
+      const payload = await response.json();
+      const m = payload.metrics || {};
+      const status = payload.status || {};
+
+      byId('cpuSummary').textContent = `${m.CPU_SUMMARY || '--'}%`;
+      byId('memUsage').textContent = `${m.MEM_USAGE_PERCENT || '--'}%`;
+      byId('diskUsage').textContent = `${m.ROOT_USAGE_PERCENT || '--'}%`;
+      byId('processCount').textContent = m.RUNNING_PROCESS_COUNT || m.PROCESS_COUNT || '--';
+      byId('processDetails').textContent = `Total processes: ${m.TOTAL_PROCESS_COUNT || '--'}`;
+      byId('loadAvg').textContent = `Load average: ${m.LOADAVG_1 || '--'}, ${m.LOADAVG_5 || '--'}, ${m.LOADAVG_15 || '--'}`;
+      byId('memDetails').textContent = `${m.MEM_USED_MB || '--'} MB used / ${m.MEM_TOTAL_MB || '--'} MB total`;
+      byId('diskDetails').textContent = `${m.ROOT_USED_HR || '--'} used / ${m.ROOT_TOTAL_HR || '--'} total`;
+      byId('uptime').textContent = `Uptime: ${m.UPTIME_HUMAN || '--'}`;
+      byId('diskIo').textContent = `Disk I/O: read ${m.DISK_READ_KBPS || '--'} KB/s · write ${m.DISK_WRITE_KBPS || '--'} KB/s`;
+      byId('statusPill').textContent = `Monitor ${status.running || 'unknown'} · PID ${status.pid || 'n/a'}`;
+      byId('lastRefresh').textContent = `Last refresh: ${status.last_refresh || m.TIMESTAMP_DISPLAY || 'n/a'}`;
+      byId('logBox').textContent = (payload.logs || []).join('\n') || 'No logs yet';
+
+      updateBar(byId('cpuBar'), m.CPU_SUMMARY);
+      updateBar(byId('memBar'), m.MEM_USAGE_PERCENT);
+      updateBar(byId('diskBar'), m.ROOT_USAGE_PERCENT);
+
+      renderAlerts(payload.alerts || []);
+      renderCores(payload.cpu_cores || []);
+      renderTable(byId('topCpuTable'), payload.top_cpu || []);
+      renderTable(byId('topMemTable'), payload.top_mem || []);
+
+      if (showToast) {
+        byId('statusPill').textContent = `Monitor ${status.running || 'unknown'} · PID ${status.pid || 'n/a'} · forced refresh sent`;
+      }
+    }
+
+    async function forceRefresh() {
+      await fetch('/api/refresh?source=dashboard-button', { cache: 'no-store' });
+      setTimeout(() => fetchMetrics(true), 700);
+    }
+
+    byId('forceRefreshBtn').addEventListener('click', forceRefresh);
+    fetchMetrics().catch((error) => {
+      byId('logBox').textContent = `Failed to load dashboard data: ${error}`;
+    });
+    setInterval(() => fetchMetrics().catch(() => {}), 2000);
+  </script>
+</body>
+</html>
