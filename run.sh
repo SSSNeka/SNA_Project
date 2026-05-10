@@ -4,8 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-HOST="${SHM_HOST:-127.0.0.1}"
-PORT="${SHM_PORT:-${1:-8000}}"
+HOST="127.0.0.1"
+PORT=8000
+INTERVAL=2
 RUNTIME_DIR="$SCRIPT_DIR/runtime"
 RUN_PID_FILE="$RUNTIME_DIR/run.pid"
 SERVER_PID_FILE="$RUNTIME_DIR/server.pid"
@@ -18,6 +19,64 @@ YELLOW='\033[33m'
 GREEN='\033[32m'
 CYAN='\033[36m'
 RED='\033[31m'
+
+show_help() {
+  cat <<HELP
+Usage: ./run.sh [OPTIONS]
+
+OPTIONS:
+  --host HOST       Server host (default: 127.0.0.1)
+  --port PORT       Server port (default: 8000)
+  --interval SEC    Refresh interval in seconds (default: 2)
+  --help            Show this help message
+
+HELP
+}
+
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --help)
+        show_help
+        exit 0
+        ;;
+      --host)
+        if [[ -z "${2:-}" ]]; then
+          printf '%b\n' "${RED}Error: --host requires a hostname/IP${RESET}"
+          exit 1
+        fi
+        HOST="$2"
+        shift 2
+        ;;
+      --port)
+        if [[ -z "${2:-}" ]]; then
+          printf '%b\n' "${RED}Error: --port requires a port number${RESET}"
+          exit 1
+        fi
+        PORT="$2"
+        shift 2
+        ;;
+      --interval)
+        if [[ -z "${2:-}" ]]; then
+          printf '%b\n' "${RED}Error: --interval requires a number (seconds)${RESET}"
+          exit 1
+        fi
+        INTERVAL="$2"
+        shift 2
+        ;;
+      -*)
+        printf '%b\n' "${RED}Error: unknown option '$1'${RESET}"
+        show_help
+        exit 1
+        ;;
+      *)
+        printf '%b\n' "${RED}Error: unknown argument '$1'${RESET}"
+        show_help
+        exit 1
+        ;;
+    esac
+  done
+}
 
 mkdir -p "$RUNTIME_DIR"
 printf '%s\n' "$$" > "$RUN_PID_FILE"
@@ -35,8 +94,8 @@ print_port_help() {
   echo "  lsof -nP -iTCP:${PORT} -sTCP:LISTEN"
   echo
   echo "Then either stop that process or start this dashboard on another port:"
-  echo "  SHM_PORT=8001 ./run.sh"
   echo "  ./run.sh 8001"
+  echo "  ./run.sh --port 8001"
 }
 
 check_port_available() {
@@ -96,19 +155,18 @@ trap handle_usr1 USR1
 trap stop_server INT TERM
 trap cleanup_pid_files EXIT
 
+parse_args "$@"
+
 if ! check_port_available; then
   print_port_help
   exit 98
 fi
 
-export SHM_HOST="$HOST"
-export SHM_PORT="$PORT"
-
 echo "Starting System Health Dashboard on http://${HOST}:${PORT}"
 printf '%b\n' "${CYAN}run.sh PID: $$${RESET}"
 printf '%b\n' "${CYAN}To demonstrate SIGUSR1 visually in web mode:${RESET} kill -USR1 $$"
 
-./server.py &
+SHM_HOST="$HOST" SHM_PORT="$PORT" SHM_INTERVAL="$INTERVAL" ./server.py &
 SERVER_PID=$!
 printf '%s\n' "$SERVER_PID" > "$SERVER_PID_FILE"
 printf '%b\n' "${CYAN}server.py PID: ${SERVER_PID}${RESET}"
