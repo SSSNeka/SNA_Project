@@ -132,7 +132,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/refresh":
             ok = send_refresh_signal()
-            self._json_response({"ok": ok, "message": "SIGUSR1 sent to monitor" if ok else "Monitor not running"})
+            self._json_response({"ok": ok})
             return
         if parsed.path == "/api/health":
             self._json_response({"ok": True, "host": HOST, "port": PORT})
@@ -148,15 +148,11 @@ def serve() -> None:
         server = ThreadingHTTPServer((HOST, PORT), DashboardHandler)
     except OSError as exc:
         if exc.errno == 98:
-            print(
-                f"Port {HOST}:{PORT} is already in use. "
-                "Stop the existing process or use another port: --port 8001",
-                flush=True,
-            )
+            print(f"Error: Port {HOST}:{PORT} already in use", flush=True)
             raise SystemExit(98) from exc
         raise
 
-    print(f"System Health Dashboard running at http://{HOST}:{PORT}", flush=True)
+    print(f"Dashboard running at http://{HOST}:{PORT}", flush=True)
     try:
         server.serve_forever()
     finally:

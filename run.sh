@@ -13,6 +13,7 @@ SERVER_PID_FILE="$RUNTIME_DIR/server.pid"
 SERVER_PID=""
 MONITOR_PID=""
 STOPPING=0
+SIGNAL_RECEIVED=""
 
 RESET='\033[0m'
 YELLOW='\033[33m'
@@ -24,11 +25,11 @@ show_help() {
   cat <<HELP
 Usage: ./run.sh [OPTIONS]
 
-OPTIONS:
-  --host HOST       Server host (default: 127.0.0.1)
-  --port PORT       Server port (default: 8000)
-  --interval SEC    Refresh interval in seconds (default: 2)
-  --help            Show this help message
+Options:
+  --host HOST       Host (default: 127.0.0.1)
+  --port PORT       Port (default: 8000)
+  --interval SEC    Interval in seconds (default: 2)
+  --help            Help
 
 HELP
 }
@@ -86,14 +87,10 @@ cleanup_pid_files() {
 }
 
 print_port_help() {
-  printf '%b\n' "${RED}Port ${HOST}:${PORT} is already in use.${RESET}"
+  printf '%b\n' "${RED}Error: Port ${HOST}:${PORT} is in use${RESET}"
   echo
-  echo "Find and stop the existing process:"
-  echo "  ss -ltnp 'sport = :${PORT}'"
-  echo "  lsof -nP -iTCP:${PORT} -sTCP:LISTEN"
-  echo
-  echo "Or use another port:"
-  echo "  ./run.sh --port 8001"
+  echo "Find the process: ss -ltnp 'sport = :${PORT}'"
+  echo "Use another port: ./run.sh --port 8001"
 }
 
 check_port_available() {
@@ -117,7 +114,7 @@ PY
 stop_server() {
   STOPPING=1
   echo
-  printf '%b\n' "${YELLOW}Caught SIGINT/SIGTERM. Stopping gracefully...${RESET}"
+  printf '%b\n' "${YELLOW}Received signal: $SIGNAL_RECEIVED. Stopping…${RESET}"
 
   # Processes already got SIGINT, just wait with timeout
   if [[ -n "${SERVER_PID:-}" ]]; then
@@ -129,26 +126,29 @@ stop_server() {
   fi
 
   cleanup_pid_files
-  printf '%b\n' "${GREEN}Dashboard stopped cleanly.${RESET}"
+  printf '%b\n' "${GREEN}Stopped.${RESET}"
   exit 0
 }
 
 handle_usr1() {
-  local now
-  now="$(date '+%Y-%m-%d %H:%M:%S')"
-  echo
-  printf '%b\n' "${CYAN}[${now}] run.sh received SIGUSR1, forwarding to monitor...${RESET}"
-
   if [[ -n "${MONITOR_PID:-}" ]] && kill -0 "$MONITOR_PID" 2>/dev/null; then
     kill -USR1 "$MONITOR_PID" 2>/dev/null || true
-    printf '%b\n' "${GREEN}Sent SIGUSR1 to monitor PID ${MONITOR_PID}.${RESET}"
-  else
-    printf '%b\n' "${YELLOW}Monitor not running.${RESET}"
   fi
 }
 
+handle_sigint() {
+  SIGNAL_RECEIVED="SIGINT"
+  stop_server
+}
+
+handle_sigterm() {
+  SIGNAL_RECEIVED="SIGTERM"
+  stop_server
+}
+
 trap handle_usr1 USR1
-trap stop_server INT TERM
+trap handle_sigint INT
+trap handle_sigterm TERM
 trap cleanup_pid_files EXIT
 
 parse_args "$@"
@@ -158,18 +158,15 @@ if ! check_port_available; then
   exit 98
 fi
 
-echo "Starting System Health Dashboard on http://${HOST}:${PORT}"
-printf '%b\n' "${CYAN}run.sh PID: $$${RESET}"
+echo "Starting dashboard at http://${HOST}:${PORT}"
 
-# Start server.py
+# Start server
 SHM_HOST="$HOST" SHM_PORT="$PORT" SHM_INTERVAL="$INTERVAL" ./server.py &
 SERVER_PID=$!
-printf '%b\n' "${CYAN}server.py PID: ${SERVER_PID}${RESET}"
 
-# Start monitor.sh
+# Start monitor
 ./monitor.sh --headless --interval "$INTERVAL" --runtime-dir "$RUNTIME_DIR" --log-file "$SCRIPT_DIR/logs/system_health.log" &
 MONITOR_PID=$!
-printf '%b\n' "${CYAN}monitor.sh PID: ${MONITOR_PID}${RESET}"
 
 printf '%s\n' "$SERVER_PID" > "$SERVER_PID_FILE"
 

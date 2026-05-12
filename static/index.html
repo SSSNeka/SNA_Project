@@ -247,24 +247,24 @@
   <div class="shell">
     <section class="hero">
       <div>
-        <h1>System Health Monitoring Dashboard</h1>
+        <h1>System Dashboard</h1>
         <div class="subtitle">
-          Localhost Linux web application backed by a Bash monitoring engine. Metrics come from <code>/proc</code>, process inspection, and system utilities, with signal-based auto-refresh every 2 seconds.
+          Real-time system monitoring and resource tracking
         </div>
       </div>
       <div class="actions">
-        <div class="pill" id="statusPill">Starting monitor…</div>
-        <div class="pill" id="lastRefresh">Waiting for data…</div>
-        <button id="forceRefreshBtn">Force refresh (SIGUSR1)</button>
+        <div class="pill" id="statusPill">Initializing…</div>
+        <div class="pill" id="lastRefresh">—</div>
+        <button id="forceRefreshBtn">Refresh</button>
       </div>
     </section>
 
     <section class="grid-4">
       <article class="card">
-        <div class="kpi-title">Overall CPU</div>
+        <div class="kpi-title">CPU</div>
         <div class="kpi-value" id="cpuSummary">--%</div>
         <div class="bar-track"><div class="bar-fill" id="cpuBar"></div></div>
-        <div class="tiny" id="loadAvg">Load average: --</div>
+        <div class="tiny" id="loadAvg">Load: --</div>
       </article>
       <article class="card">
         <div class="kpi-title">Memory Usage</div>
@@ -273,17 +273,17 @@
         <div class="tiny" id="memDetails">--</div>
       </article>
       <article class="card">
-        <div class="kpi-title">Root Disk Usage</div>
+        <div class="kpi-title">Disk</div>
         <div class="kpi-value" id="diskUsage">--%</div>
         <div class="bar-track"><div class="bar-fill" id="diskBar"></div></div>
         <div class="tiny" id="diskDetails">--</div>
       </article>
       <article class="card">
-        <div class="kpi-title">Running Processes & Uptime</div>
+        <div class="kpi-title">System Status</div>
         <div class="kpi-value" id="processCount">--</div>
-        <div class="tiny" id="processDetails">Total processes: --</div>
+        <div class="tiny" id="processDetails">Processes: --</div>
         <div class="tiny" id="uptime">Uptime: --</div>
-        <div class="tiny" id="diskIo">Disk I/O: --</div>
+        <div class="tiny" id="diskIo">I/O: --</div>
       </article>
     </section>
 

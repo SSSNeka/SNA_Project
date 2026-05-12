@@ -15,6 +15,7 @@ TICKER_PID=""
 DISPLAY_WIDTH=36
 FORCE_NO_CLEAR=0
 MAIN_PID="$$"
+SIGNAL_RECEIVED=""
 
 mkdir -p "$RUNTIME_DIR" "$LOG_DIR"
 
@@ -23,14 +24,14 @@ usage() {
 Usage: ./monitor.sh [options]
 
 Options:
-  --headless            Run without CLI output, only update runtime files
-  --interval N          Refresh interval in seconds (default: 2)
-  --log-file PATH       Log file path
-  --no-log              Disable logging to file
-  --pid-file PATH       PID file path
-  --runtime-dir PATH    Directory for runtime snapshot files
-  --no-clear            Do not clear terminal before redraw
-  --help                Show this help
+  --headless       Run without output (background mode)
+  --interval N     Update interval in seconds (default: 2)
+  --log-file PATH  Log file path
+  --no-log         Disable logging
+  --pid-file PATH  PID file path
+  --runtime-dir    Runtime directory
+  --no-clear       Don't clear terminal
+  --help           Help
 USAGE
 }
 
@@ -192,14 +193,25 @@ cleanup() {
 handle_interrupt() {
   if (( HEADLESS == 0 )); then
     echo
-    echo -e "${YELLOW}Caught SIGINT. Cleaning up and exiting...${RESET}"
+    echo -e "${YELLOW}Received signal: $SIGNAL_RECEIVED. Exiting…${RESET}"
   fi
   cleanup
   exit 0
 }
 
+handle_sigint() {
+  SIGNAL_RECEIVED="SIGINT"
+  handle_interrupt
+}
+
+handle_sigterm() {
+  SIGNAL_RECEIVED="SIGTERM"
+  handle_interrupt
+}
+
 trap handle_refresh_signal USR1
-trap handle_interrupt INT TERM
+trap handle_sigint INT
+trap handle_sigterm TERM
 trap cleanup EXIT
 
 start_ticker() {
@@ -350,14 +362,14 @@ refresh_load_and_uptime() {
 
 refresh_alerts() {
   ALERT_MESSAGES=()
-  (( CPU_SUMMARY >= 85 )) && ALERT_MESSAGES+=("High overall CPU usage detected (${CPU_SUMMARY}%)")
-  (( MEM_USAGE_PERCENT >= 80 )) && ALERT_MESSAGES+=("High memory usage detected (${MEM_USAGE_PERCENT}%)")
-  (( ROOT_USAGE_PERCENT >= 85 )) && ALERT_MESSAGES+=("Root filesystem almost full (${ROOT_USAGE_PERCENT}%)")
+  (( CPU_SUMMARY >= 85 )) && ALERT_MESSAGES+=("High CPU (${CPU_SUMMARY}%)")
+  (( MEM_USAGE_PERCENT >= 80 )) && ALERT_MESSAGES+=("High memory (${MEM_USAGE_PERCENT}%)")
+  (( ROOT_USAGE_PERCENT >= 85 )) && ALERT_MESSAGES+=("Low disk space (${ROOT_USAGE_PERCENT}%)")
 
   local tmp_file="$ALERTS_FILE.tmp"
   : > "$tmp_file"
   if (( ${#ALERT_MESSAGES[@]} == 0 )); then
-    echo "System status normal" > "$tmp_file"
+    echo "All systems nominal" > "$tmp_file"
   else
     printf '%s\n' "${ALERT_MESSAGES[@]}" > "$tmp_file"
   fi
@@ -416,15 +428,15 @@ render_cli_dashboard() {
   mem_color=$(color_for_percent "$MEM_USAGE_PERCENT")
   disk_color=$(color_for_percent "$ROOT_USAGE_PERCENT")
 
-  echo -e "${BOLD}${CYAN}System Health Monitoring Dashboard${RESET} ${DIM}(Linux /proc + signals)${RESET}"
-  echo -e "Updated: ${TIMESTAMP_DISPLAY} | PID: $$ | Interval: ${INTERVAL}s"
+  echo -e "${BOLD}${CYAN}System Dashboard${RESET}"
+  echo -e "${TIMESTAMP_DISPLAY} | ${INTERVAL}s interval"
   echo
-  echo -e "${BOLD}Overview${RESET}"
+  echo -e "${BOLD}Metrics${RESET}"
   printf '  CPU Usage     : %b%s%%%b %s\n' "$cpu_color" "$CPU_SUMMARY" "$RESET" "$(bar "$CPU_SUMMARY" "$DISPLAY_WIDTH")"
   printf '  Memory Usage  : %b%s%%%b %s (%sMB / %sMB)\n' "$mem_color" "$MEM_USAGE_PERCENT" "$RESET" "$(bar "$MEM_USAGE_PERCENT" "$DISPLAY_WIDTH")" "$MEM_USED_MB" "$MEM_TOTAL_MB"
-  printf '  Root Disk     : %b%s%%%b %s (%s / %s used)\n' "$disk_color" "$ROOT_USAGE_PERCENT" "$RESET" "$(bar "$ROOT_USAGE_PERCENT" "$DISPLAY_WIDTH")" "$ROOT_USED_HR" "$ROOT_TOTAL_HR"
-  printf '  Disk I/O      : read %s KB/s | write %s KB/s\n' "$DISK_READ_KBPS" "$DISK_WRITE_KBPS"
-  printf '  Processes     : %s running / %s total\n' "$RUNNING_PROCESS_COUNT" "$TOTAL_PROCESS_COUNT"
+  printf '  Disk Usage    : %b%s%%%b %s (%s / %s)\n' "$disk_color" "$ROOT_USAGE_PERCENT" "$RESET" "$(bar "$ROOT_USAGE_PERCENT" "$DISPLAY_WIDTH")" "$ROOT_USED_HR" "$ROOT_TOTAL_HR"
+  printf '  Disk I/O      : read %s KB/s, write %s KB/s\n' "$DISK_READ_KBPS" "$DISK_WRITE_KBPS"
+  printf '  Processes     : %s active, %s total\n' "$RUNNING_PROCESS_COUNT" "$TOTAL_PROCESS_COUNT"
   printf '  Load Average  : %s %s %s\n' "$LOADAVG_1" "$LOADAVG_5" "$LOADAVG_15"
   printf '  Uptime        : %s\n' "$UPTIME_HUMAN"
   echo
@@ -437,30 +449,29 @@ render_cli_dashboard() {
   done < "$CPU_FILE"
   echo
 
-  echo -e "${BOLD}Top 5 by CPU${RESET}"
+  echo -e "${BOLD}Top CPU${RESET}"
   printf '  %-8s %-24s %-8s %-8s\n' 'PID' 'COMMAND' 'CPU%' 'MEM%'
   while IFS=',' read -r pid comm cpu mem; do
     printf '  %-8s %-24s %-8s %-8s\n' "$pid" "$comm" "$cpu" "$mem"
   done < "$TOP_CPU_FILE"
   echo
 
-  echo -e "${BOLD}Top 5 by Memory${RESET}"
+  echo -e "${BOLD}Top Memory${RESET}"
   printf '  %-8s %-24s %-8s %-8s\n' 'PID' 'COMMAND' 'CPU%' 'MEM%'
   while IFS=',' read -r pid comm cpu mem; do
     printf '  %-8s %-24s %-8s %-8s\n' "$pid" "$comm" "$cpu" "$mem"
   done < "$TOP_MEM_FILE"
   echo
 
-  echo -e "${BOLD}Alerts${RESET}"
+  echo -e "${BOLD}Status${RESET}"
   if (( ${#ALERT_MESSAGES[@]} == 0 )); then
-    echo -e "  ${GREEN}System status normal${RESET}"
+    echo -e "  ${GREEN}All systems nominal${RESET}"
   else
     for message in "${ALERT_MESSAGES[@]}"; do
-      echo -e "  ${YELLOW}!${RESET} $message"
+      echo -e "  ${YELLOW}⚠${RESET}  $message"
     done
   fi
-  echo
-  echo -e "${DIM}Controls: Ctrl+C for clean exit. SIGUSR1 triggers an immediate refresh.${RESET}"
+  echo -e "${DIM}Ctrl+C to exit${RESET}"
 }
 
 refresh_all() {
